@@ -38,8 +38,9 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
     
     function __construct(){
         global $INFO;
+        global $ID;
         
-        $permissionlevel = auth_quickaclcheck($data['name']);
+        $permissionlevel = auth_quickaclcheck($ID);
         switch ($this->getConf('use ACL permissions')) {
             case 'no':
                 if ($INFO['ismanager'] === true) $this->editor = true;
