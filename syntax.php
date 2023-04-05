@@ -20,6 +20,9 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
     public $editor = false;   # Does user have editing rights for contacts?
     public $loggedin = false; # User logged in?
     
+    private $instance = 0;
+    private $showCount = 0;
+    
     function getSort(){
         return 158;
     }
@@ -140,12 +143,14 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
 				
 		# addressbook_debug_show();
 		
-		if ($_REQUEST['Submit'] == $this->getLang('exec cancel')){
+		if (isset($_REQUEST['Submit']) && $_REQUEST['Submit'] == $this->getLang('exec cancel')){
 			unset($_REQUEST);
 			unset ($cinfo);
 			$action = $data;
 		}
 		
+        $cinfo = null;
+        
 		# Main action given by tag data
 		if (!isset($_REQUEST['Submit'])) $action = $data;
 
@@ -154,7 +159,7 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
 		 * 
 		 * On fail: show edit form again
 		 */
-		if ($_REQUEST['Submit']==$this->getLang('exec save')) $action = "savedata";
+		if (isset($_REQUEST['Submit']) && $_REQUEST['Submit']==$this->getLang('exec save')) $action = "savedata";
 		
 		# Certain actions could cause double saving, which is avoided by counting
 		if ($action=='savedata' && $this->saveOnce == 0 && $this->editor){
@@ -205,6 +210,17 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
 				$list = $this->getList(false,'department,surname,firstname,cfunction');
 				$renderer->doc .= $this->buildIndex($list,'department',$ID);
 			} else $renderer->doc .= $this->buildIndex(false,false,$ID);
+			
+			return true; # no following actions
+		}
+        
+		if (substr($data,0,8) == 'BSNRlist') {
+					
+			# keyword 'departments'
+			if (strpos($data,'departments') > 0) {
+				$list = $this->getList(false,'department,surname,firstname,cfunction');
+				$renderer->doc .= $this->buildBSNRList($list,'department',$ID);
+			} else $renderer->doc .= $this->buildBSNRList(false,false,$ID);
 			
 			return true; # no following actions
 		}
@@ -260,13 +276,13 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
 		
 		
 		# Show search box
-		if ($action == 'search' || $_REQUEST['Submit'] == $this->getLang('exec search')) {
+		if ($action == 'search' || isset($_REQUEST['Submit']) && $_REQUEST['Submit'] == $this->getLang('exec search')) {
 			$out = $this->searchDialog();
 			$renderer->doc .= $out;
 		}
 		
 		
-		if ($_REQUEST['Submit'] == $this->getLang('exec search')) {
+		if (isset($_REQUEST['Submit']) && $_REQUEST['Submit'] == $this->getLang('exec search')) {
 			$list = $this->searchDB($_REQUEST['searchtext']);
 			if ($list != false){
 				if (count($list)<5) {
@@ -353,19 +369,21 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
         $out .= '<br><form enctype="multipart/form-data" action="'.wl($ID).'" method="POST">';
         $out .= '<input type="hidden" name="MAX_FILE_SIZE" value="2200000" />';
         $out .= '<input type="hidden" name="contactid" value="'.$contact_id.'" />';
-        $out .= '<input type="text" name="department" placeholder="'.$this->getLang('form department').'" value="'.$cinfo['department'].'">';
-	    /* // das Feld firstname nutzen wir nicht: $out .= '<input type="text" name="firstname" placeholder="'.$this->getLang('form firstname').'" value="'.$cinfo['firstname'].'">';*/
-        $out .= '<input type="text" name="surname" placeholder="'.$this->getLang('form surname').'" value="'.$cinfo['surname'].'"><br/>';
-		$out .= '<input type="text" name="tel2" placeholder="'.$this->getLang('form tel2').'" value="'.$cinfo['tel2'].'">';
-        $out .= '<input type="text" name="cfunction" placeholder="'.$this->getLang('form function').'" value="'.$cinfo['cfunction'].'"><br/>';
-        $out .= '<input type="text" name="tel1" placeholder="'.$this->getLang('form tel1').'" value="'.$cinfo['tel1'].'">';
-        $out .= '<input type="text" name="fax" placeholder="'.$this->getLang('form fax').'" value="'.$cinfo['fax'].'"><br>';
-        $out .= '<input type="text" name="email" placeholder="'.$this->getLang('form email').'" value="'.$cinfo['email'].'"><br>';
-        $out .= '<br>'.$this->getLang('form description').':<br><textarea name="description">'.$cinfo['description'].'</textarea><br><br>';
+        
+        $out .= '<input type="text" name="department" placeholder="'.$this->getLang('form department').'" value="'.(isset($cinfo)?$cinfo['department']:'').'">';
+        /* // das Feld firstname nutzen wir nicht: $out .= '<input type="text" name="firstname" placeholder="'.$this->getLang('form firstname').'" value="'.(isset($cinfo)?$cinfo['firstname']:'').'">';*/
+        $out .= '<input type="text" name="surname" placeholder="'.$this->getLang('form surname').'" value="'.(isset($cinfo)?$cinfo['surname']:'').'"><br/>';
+        $out .= '<input type="text" name="tel2" placeholder="'.$this->getLang('form tel2').'" value="'.(isset($cinfo)?$cinfo['tel2']:'').'">';
+        $out .= '<input type="text" name="cfunction" placeholder="'.$this->getLang('form function').'" value="'.(isset($cinfo)?$cinfo['cfunction']:'').'"><br/>';
+        $out .= '<input type="text" name="tel1" placeholder="'.$this->getLang('form tel1').'" value="'.(isset($cinfo)?$cinfo['tel1']:'').'">';
+        $out .= '<input type="text" name="fax" placeholder="'.$this->getLang('form fax').'" value="'.(isset($cinfo)?$cinfo['fax']:'').'"><br>';
+        $out .= '<input type="text" name="email" placeholder="'.$this->getLang('form email').'" value="'.(isset($cinfo)?$cinfo['email']:'').'"><br>';
+        $out .= '<br>'.$this->getLang('form description').':<br><textarea name="description">'.(isset($cinfo)?$cinfo['description']:'').'</textarea><br><br>';
         
         $out .= '<div class="photoupload">';
         if (isset($_REQUEST['blob'])) $cinfo['photo'] = $_REQUEST['blob'];
-        if ($cinfo['photo'] != false) {
+        
+        if (isset($cinfo) && $cinfo['photo'] != false) {
             $out .= "<img style='float:left;max-width:120px' src='data:image/jpg;base64,".($cinfo['photo'])."'>";
             $out .= '<br><input type="checkbox" id="removephoto" name="removephoto" value="Remove photo"> ';
             $out .= '<label for="removephoto">'.$this->getLang('form remove').'</label><br><br>';
@@ -391,7 +409,7 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
         
         $r = $this->getContactData($cid);
 
-        if ($res === false) return false;
+        //if ($res === false) return false;
         
         $out ='';
         
@@ -418,8 +436,8 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
         
         # TS: Adresse
         if ($r['tel2'].$r['cfunction']<>'') $out .= '<br>'.$this->names(array($r['tel2'],$r['cfunction']));
-        # Fax
-        if ($r['fax']<>'') $out .= '<br>Fax: '.$r['fax'];
+        # TS: BSNR
+        if ($r['fax']<>'') $out .= '<br>BSNR: '.$r['fax'];
         
         # Mail
         if ($r['email']<>'') $out .= '<br>Mail: <a href="mailto:'.$r['email'].'">'.$r['email'].'</a>';
@@ -720,6 +738,11 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
             $sql = "select * from addresslist WHERE UPPER(department) = UPPER('".$filters['department']."') ORDER BY $order";
         }
         
+        # Get only entries with a value in 'fax'
+        if ($filters == 'BSNR'){
+            $sql = "select * from addresslist WHERE fax <> '' ORDER BY $order";
+        }
+        
         $query = $sqlite->query($sql);
         $res = $sqlite->res2arr($query);
         
@@ -839,7 +862,7 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
         # Sort by Surname or Function->if no surname ist stated
         if (!$separator) usort($list,'contact_custom_double_sort');
         
-        $out .= $this->getLang('elements').': '.count($list);
+        $out = $this->getLang('elements').': '.count($list);
         $out .= '<div class="addressbook_list" style="column-width:20em;margin-top:3px;">';
         
         
@@ -877,6 +900,75 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
         return $out;
 
     }
+    
+    /* Build a list of contacts that have a BSNR (in db column 'fax') (written by TS)
+     *
+     *  @param $list: list of contacts
+     *  @param $separator = db_field for which headers are created in the list.
+     */
+    function buildBSNRlist($list=false,$separator=false,$target=false){
+        
+        # if no list ist stated, get all. If no entry in DB, return
+        if ($list===false){
+            $list =$this->getList('BSNR');
+            if ($list === false) return;
+        }
+        
+        # Sort by Surname or Function->if no surname ist stated
+        if (!$separator) usort($list,'contact_custom_double_sort');
+        
+        $out = '';//$this->getLang('elements').': '.count($list);
+        
+        $out .= '<ul>';
+        
+        $sep = '';
+        foreach ($list as $r){
+            
+            if ($separator !== false){
+                if ($sep != $r[$separator]) {
+                    if (strlen($sep) > 0) {
+                        $out .= '</li></ul>';
+                    }
+                    $sep = $r[$separator];
+                    $out .= '<li><strong>'.$r[$separator].'</strong>';
+                    $out .= '<ul>';
+                }
+            }
+            
+            if (isset($r['fax']) && strlen($r['fax']) > 0) {
+                $out .= '<li>';
+                
+                if ($r['surname'].$r['firstname'] <> '') {$names = true;} else {$names = false;}
+                
+                $out .= '<a href="'.wl(':quer:adresse','showcontact='.$r['id']).'">';
+                
+                $out .= $r['surname'] .($r['firstname'] <> ''? ', '.$r['firstname']:'');
+                if (!$names) $out .= $this->names(array($r['cfunction'],$r['department']));
+                
+                $out .= '</a>';
+            
+                if ($names && $r['cfunction'] <>'') {
+                    $tmp = $this->names(array($r['cfunction']));
+                    // ziehe PLZ aus dem Namen heraus
+                    $tmp = trim(preg_replace('/[0-9]+/', '', $tmp));
+                    $out .= ', '.$tmp;
+                }
+                
+                if ($names && $r['fax'] <>'') $out .= ' (BNSR: '.$this->names(array($r['fax'])).')';
+                
+                $out .= '</li>';
+            }
+        }
+        
+        if ($separator !== false){
+            $out .= '</li></ul>';
+        }
+            
+        $out .= '</ul>';
+        
+        return $out;
+
+    }
 
 
     /* Builds a printable contact list
@@ -902,7 +994,7 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
             
             $out .= '<table class="plugin_addressbook_print">';
         
-			$out .= '<tr><th>Praxis</th><th>Adresse</th><th>Telefon</th></tr>';//<th>Fax</th></tr>';
+			$out .= '<tr><th>Praxis</th><th>Adresse</th><th>Telefon</th></tr><th>BSNR</th></tr>';
             for ($row=0;$row<$entriesperpage/2;$row++) {
                 
                 unset($i);
@@ -927,7 +1019,7 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
                         $out .= '<td style="text-align:left">'.$this->names(array($list[$d]['surname'],$list[$d]['firstname'])).'</td>';
                         $out .= '<td style="text-align:left">'.$list[$d]['tel2'].', '.$list[$d]['cfunction'].'</td>';
                         $out .= '<td>'.$list[$d]['tel1'].'</td>';
-                        //$out .= '<td>'.$list[$d]['fax'].'</td>';
+                        $out .= '<td>'.$list[$d]['fax'].'</td>';
 
                         $col++;
                         if ($col < count($i)) $out .= '<td style="background:white;width:10px;"></td>';
