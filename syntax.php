@@ -990,11 +990,13 @@ class syntax_plugin_addressbook extends DokuWiki_Syntax_Plugin {
 		$amount = 0;
 		$this->preparePrintList($list,$separator,$entriesperpage,$pages,$amount);
 		
+        $out = '';
+        
         for ($p=0;$p<$pages;$p++) {
             
             $out .= '<table class="plugin_addressbook_print">';
         
-			$out .= '<tr><th>Praxis</th><th>Adresse</th><th>Telefon</th></tr><th>BSNR</th></tr>';
+			$out .= '<tr><th>Praxis</th><th>Adresse</th><th>Telefon</th><th>BSNR</th></tr>';
             for ($row=0;$row<$entriesperpage/2;$row++) {
                 
                 unset($i);
